@@ -1,0 +1,4 @@
+# Rendered figures committed as portfolio artifacts live here:
+#   - the worked-example computational graph (M3, viz.draw_graph)
+#   - the two-moons decision boundary (M4)
+#   - MNIST results / benchmark plots (M7)

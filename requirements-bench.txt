@@ -1,0 +1,5 @@
+# M7 benchmark baseline only — reproduces the PyTorch accuracy/speed comparison.
+# Verified available as a Python 3.14 wheel. Install on top of requirements.txt:
+#
+#   pip install -r requirements-bench.txt
+torch==2.12.1

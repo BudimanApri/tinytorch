@@ -1,0 +1,16 @@
+# Core dependencies for tinytorch (M0–M6). Pinned for reproducibility.
+# Built and tested against Python 3.14.0.
+#
+#   python -m venv .venv
+#   .venv\Scripts\Activate.ps1      # Windows PowerShell
+#   pip install -r requirements.txt
+#
+# NOTE: the PyTorch benchmark baseline (M7) lives in requirements-bench.txt so
+# the core install stays lean — torch (~2 GB) is only needed to reproduce the
+# benchmark comparison, not to run the engine, tests, or two-moons example.
+
+numpy==2.5.0
+matplotlib==3.11.0
+scikit-learn==1.9.0
+graphviz==0.21        # Python bindings only; rendering needs the system Graphviz `dot` binary on PATH
+pytest==9.1.1

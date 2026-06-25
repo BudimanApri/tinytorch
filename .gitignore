@@ -1,0 +1,45 @@
+# Virtual environment
+.venv/
+venv/
+
+# Byte-compiled / optimized
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.cache/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Datasets downloaded at runtime (MNIST, etc.)
+data/
+*.gz
+*.idx*-ubyte
+*.npz
+
+# Model checkpoints
+*.pt
+*.pth
+*.pkl
+
+# Graphviz intermediate DOT source (we keep the rendered .png under assets/)
+*.gv
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Claude Code local (machine-specific) settings
+.claude/settings.local.json
