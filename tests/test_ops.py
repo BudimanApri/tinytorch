@@ -42,3 +42,22 @@ def test_milestone1_example2():
     assert c.grad == -6.0
     assert b.grad == 6.0
     assert a.grad == -18.0
+
+def test_composed_dunders():
+    x = Value(2.0)
+    y = Value(3.0)
+    
+    # subtraction
+    assert (x - y).data == -1.0
+    assert (x - 2.0).data == 0.0
+    assert (2.0 - x).data == 0.0
+    
+    # division
+    assert (x / y).data == 2.0 / 3.0
+    assert (x / 2.0).data == 1.0
+    assert (2.0 / x).data == 1.0
+    
+    # right-side add and mul
+    assert (2.0 + x).data == 4.0
+    assert (2.0 * x).data == 4.0
+

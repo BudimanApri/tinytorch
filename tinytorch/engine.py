@@ -8,7 +8,7 @@ before it counts as done (see ``tests/test_gradcheck.py`` and ``CLAUDE.md``):
     M2 — ``exp``, ``tanh``, ``relu``, ``__pow__`` and the composed / right-side dunders
     M5 — ``Tensor`` refactor (NumPy-backed) with broadcasting-aware backward
 """
-
+import math
 class Value:
     """A single scalar value and its gradient."""
 
@@ -49,6 +49,41 @@ class Value:
             other.grad += self.data *out.grad
         out._backward = _backward
         return out
+    
+    def tanh(self):
+        # TODO: Implement tanh
+        t = math.tanh(self.data)
+        out = Value(t, (self,), 'tanh')
+        def _backward():
+            self.grad += (1 - t**2)*out.grad
+        out._backward = _backward
+        return out
+
+    def exp(self):
+        x = math.exp(self.data)
+        out = Value(x, (self,), 'exp')
+        def _backward():
+            self.grad += out.data*out.grad
+        out._backward = _backward
+        return out
+
+    def relu(self):
+        out_data = max(0, self.data)
+        out = Value(out_data, (self,), 'relu')
+        def _backward():
+            self.grad += (1.0 if out.data>0 else 0.0)*out.grad
+        out._backward = _backward
+        return out
+
+    def __pow__(self, power):
+        assert isinstance(power, (int, float)), "Power must be an integer or float"
+        out_data = self.data ** power
+        out = Value(out_data, (self,), f'**{power}')
+        def _backward():
+            self.grad += (power * self.data**(power-1)) * out.grad
+        out._backward = _backward
+        return out
+
 
     def backward(self):
         # TODO: Implement backward
@@ -70,3 +105,17 @@ class Value:
 
     def __repr__(self):
         return f"Value(data={self.data}, grad={self.grad})"
+    def __neg__(self):
+        return self* -1.0
+    def __sub__(self,other):
+        return self + (-other)
+    def __radd__(self, other):
+        return self + other
+    def __rsub__(self, other):
+        return other + (-self)
+    def __rmul__(self, other):
+        return self * other
+    def __truediv__(self, other):
+        return self * other**-1
+    def __rtruediv__(self, other):
+        return other * self**-1

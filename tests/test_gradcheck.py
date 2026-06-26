@@ -80,3 +80,21 @@ def test_composed_gradcheck_2():
         e = c + inputs[1]
         return e * e
     gradcheck(f, [a, b])
+
+def test_tanh_gradcheck():
+    a = Value(0.5)
+    gradcheck(lambda inputs: inputs[0].tanh(), [a])
+
+def test_exp_gradcheck():
+    a = Value(-1.5)
+    gradcheck(lambda inputs: inputs[0].exp(), [a])
+
+def test_relu_gradcheck():
+    a = Value(1.5)
+    gradcheck(lambda inputs: inputs[0].relu(), [a])
+    b = Value(-1.5)
+    gradcheck(lambda inputs: inputs[0].relu(), [b])
+
+def test_pow_gradcheck():
+    a = Value(2.5)
+    gradcheck(lambda inputs: inputs[0] ** 3, [a])
