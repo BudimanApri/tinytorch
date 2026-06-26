@@ -61,3 +61,12 @@ def test_composed_dunders():
     assert (2.0 + x).data == 4.0
     assert (2.0 * x).data == 4.0
 
+def test_viz():
+    from tinytorch.viz import draw_graph
+    x = Value(2.0)
+    y = Value(3.0)
+    z = x * y + y
+    dot = draw_graph(z)
+    assert dot is not None
+
+
