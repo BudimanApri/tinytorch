@@ -1,5 +1,44 @@
-"""Per-op behavioural tests: forward values and recorded graph structure
-(``_prev`` / ``_op``), plus the two worked-by-hand examples from M1.
+import pytest
+from tinytorch.engine import Value
 
-Populated from M1/M2 onward.
-"""
+def test_milestone1_example1():
+    # Test 1 exercises +, *, and accumulation across two paths
+    a = Value(2.0)
+    b = Value(3.0)
+    c = a * b          # 6
+    d = a + b          # 5
+    L = c * d          # 30
+    L.backward()
+    
+    # Check forward values
+    assert c.data == 6.0
+    assert d.data == 5.0
+    assert L.data == 30.0
+    
+    # Check backward gradients
+    assert L.grad == 1.0
+    assert c.grad == 5.0
+    assert d.grad == 6.0
+    assert a.grad == 21.0
+    assert b.grad == 16.0
+
+def test_milestone1_example2():
+    # Test 2 exercises the self-is-other case (e*e) and the accumulation trap
+    a = Value(-2.0)
+    b = Value(3.0)
+    c = a * b          # -6
+    e = c + b          # -3
+    d = e * e          # 9
+    d.backward()
+    
+    # Check forward values
+    assert c.data == -6.0
+    assert e.data == -3.0
+    assert d.data == 9.0
+    
+    # Check backward gradients
+    assert d.grad == 1.0
+    assert e.grad == -6.0
+    assert c.grad == -6.0
+    assert b.grad == 6.0
+    assert a.grad == -18.0
