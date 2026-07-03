@@ -49,27 +49,33 @@ Each node stores:
 4. **Broadcasting-Aware Backward**:
    When adding a bias of shape `(10,)` to a batch of activations of shape `(32, 10)`, NumPy automatically broadcasts the bias. To backpropagate, we sum-reduce the incoming gradient along prepended and size-1 dimensions back to the original input shape.
 
+### A Rendered Computational Graph
+
+The graph below is the worked example `c = a*b; e = c+b; d = e*e` after calling `d.backward()`, rendered by `tinytorch.viz.draw_graph`. Note how `b` (top-left) participates in two paths — its gradient is the *sum* of both contributions, which is exactly why the backward closures accumulate with `+=`:
+
+![Worked-example computational graph](assets/worked_example.png)
+
 ---
 
 ## 3. Results & Benchmarks
 
 ### Two-Moons Classification (MLP)
-We trained a scalar-based MLP containing two hidden layers of 16 neurons on the synthetic two-moons classification dataset. Using a max-margin (SVM) loss and hand-rolled SGD, the model successfully separate the classes with **100.0% training accuracy**. L2 regularization keeps the decision boundary smooth and generalized:
+We trained a scalar-based MLP containing two hidden layers of 16 neurons on the synthetic two-moons classification dataset. Using a max-margin (SVM) loss and hand-rolled SGD, the model successfully separates the classes with **100.0% training accuracy**. L2 regularization keeps the decision boundary smooth and generalized:
 
 ![Two-Moons Decision Boundary](assets/moons_decision_boundary.png)
 
 ### MNIST Handwritten Digits Benchmark
 We trained a vectorised three-layer MLP (784 inputs $\to$ 128 hidden $\to$ 10 outputs) on a subset of the MNIST dataset (1,000 training images, 200 test images) for 10 epochs using our custom `Adam` optimizer and a numerically stable `cross_entropy` loss (log-sum-exp).
 
-We benchmarked `tinytorch` against an identical architecture implemented in `PyTorch` (apples-to-apples initialization, batch size of 100, and identical hyperparameters):
+We benchmarked `tinytorch` against an identical architecture implemented in `PyTorch` (same architecture, batch size of 100, and identical hyperparameters; each library uses its own default weight initialization). Both runs are seeded from `tinytorch.SEED = 1337`, so the numbers below are exactly reproducible:
 
 | Engine | Test Accuracy | Time (Seconds) |
 |---|---|---|
-| **`tinytorch`** (NumPy-backed) | **92.5%** | **0.6509s** |
-| **`PyTorch`** (C++ Autograd) | **93.0%** | **0.0895s** |
+| **`tinytorch`** (NumPy-backed) | **92.0%** | **0.4750s** |
+| **`PyTorch`** (C++ Autograd) | **93.0%** | **0.0935s** |
 
 ### Analyzing the Speed Gap
-`PyTorch` is **7.2x faster** than `tinytorch` on this benchmark. 
+`PyTorch` is **~5x faster** than `tinytorch` on this benchmark. 
 This difference is a core teaching result of ML systems:
 - `tinytorch` executes Python code (interpreting instructions, creating Python `Tensor` objects, and defining lambda closures) for every node in the graph during the forward pass.
 - `PyTorch` offloads graph construction and tensor operations to a pre-compiled, highly optimized C++ backend. The C++ runtime manages memory buffers directly and runs fused kernel operations, bypassing Python interpreter overhead.
@@ -79,6 +85,8 @@ This difference is a core teaching result of ML systems:
 ## Setup & Replication
 
 Built and tested with **Python 3.14.0**.
+
+Every script seeds Python, NumPy, and (when installed) PyTorch from the single constant `tinytorch.SEED = 1337` via `tinytorch.seed_everything()`, so all results in this README reproduce exactly.
 
 ### 1. Environment Setup
 ```powershell
@@ -111,3 +119,15 @@ python -m examples.train_mnist
 # Run PyTorch baseline
 python -m benchmarks.pytorch_baseline
 ```
+
+### 5. Re-render the Computational Graph (optional)
+Requires the system Graphviz `dot` binary on your PATH (e.g. `winget install Graphviz.Graphviz`):
+```powershell
+python -m examples.render_example
+```
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).

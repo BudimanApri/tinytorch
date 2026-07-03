@@ -24,11 +24,6 @@ class Value:
 
     def __add__(self, other):
         other = other if isinstance(other, Value) else Value(other)
-        # TODO: Implement __add__
-        # 1. Compute out_data
-        # 2. Build the output Value node wrapping the result and recording _prev and _op
-        # 3. Define the _backward closure to propagate gradients back to self and other
-        # 4. Return the output node
         out_data = self.data + other.data
         out = Value(out_data, (self, other), '+')
         def _backward():
@@ -39,11 +34,6 @@ class Value:
 
     def __mul__(self, other):
         other = other if isinstance(other, Value) else Value(other)
-        # TODO: Implement __mul__
-        # 1. Compute out_data
-        # 2. Build the output Value node wrapping the result and recording _prev and _op
-        # 3. Define the _backward closure to propagate gradients back to self and other
-        # 4. Return the output node
         out_data = self.data * other.data
         out = Value(out_data, (self, other), '*')
         def _backward():
@@ -53,7 +43,6 @@ class Value:
         return out
     
     def tanh(self):
-        # TODO: Implement tanh
         t = math.tanh(self.data)
         out = Value(t, (self,), 'tanh')
         def _backward():
@@ -88,10 +77,7 @@ class Value:
 
 
     def backward(self):
-        # TODO: Implement backward
-        # 1. Build a topological ordering of the graph using DFS
-        # 2. Seed self.grad = 1.0
-        # 3. Call _backward() on all nodes in reversed topological order (from outputs to inputs)
+        # Recursive DFS: graph depth is bounded by Python's recursion limit (~1000).
         topo = []
         visited = set()
         def build_topo(v):
@@ -158,37 +144,26 @@ class Tensor:
 
     def __add__(self, other):
         other = other if isinstance(other, Tensor) else Tensor(other)
-        # TODO: Implement __add__ for Tensor
-        # 1. Compute out_data (element-wise addition via NumPy)
         out_data = self.data + other.data
-        # 2. Build the output Tensor recording _prev and _op
         out = Tensor(data=out_data, _children= (self, other), _op= '+')
-        # 3. Define the _backward closure using unbroadcast() to reduce gradients
         def _backward():
             self.grad += unbroadcast(out.grad, self.shape)
             other.grad += unbroadcast(out.grad, other.shape)
         out._backward = _backward
-        # 4. Return the output Tensor
         return out
 
     def __mul__(self, other):
         other = other if isinstance(other, Tensor) else Tensor(other)
-        # TODO: Implement __mul__ for Tensor
-        # 1. Compute out_data (element-wise multiplication)
         out_data = self.data * other.data
-        # 2. Build the output Tensor recording _prev and _op
         out = Tensor(data=out_data, _children = (self, other), _op = '*')
-        # 3. Define the _backward closure using unbroadcast()
         def _backward():
             self.grad += unbroadcast(out.grad * other.data, self.shape)
             other.grad += unbroadcast(out.grad * self.data, other.shape)
         out._backward = _backward
-        # 4. Return the output Tensor
         return out
 
     def __pow__(self, power):
         assert isinstance(power, (int, float)), "Power must be an integer or float"
-        # TODO: Implement __pow__ for Tensor (element-wise exponentiation by constant power)
         out_data = self.data**power
         out = Tensor(data = out_data, _children = (self,), _op = f'**{power}')
         def _backward():
@@ -198,43 +173,31 @@ class Tensor:
 
     def __matmul__(self, other):
         other = other if isinstance(other, Tensor) else Tensor(other)
-        # TODO: Implement matrix multiplication (self @ other)
-        # 1. Compute out_data using self.data @ other.data
         out_data = self.data @ other.data
-        # 2. Build output Tensor
         out = Tensor(data = out_data, _children = (self,other), _op = '@')
-        # 3. Define _backward:
-        #    self.grad += unbroadcast(out.grad @ other.data.T, self.shape)
-        #    other.grad += unbroadcast(self.data.T @ out.grad, other.shape)
         def _backward():
             self.grad += unbroadcast(out.grad @ other.data.T, self.shape)
             other.grad += unbroadcast(self.data.T @ out.grad, other.shape)
         out._backward = _backward
-        # 4. Return output
         return out
 
     def exp(self):
-        # TODO: Implement exp for Tensor
         out_data = np.exp(self.data)
         out = Tensor(data = out_data, _children= (self,), _op = 'exp')
         def _backward():
             self.grad += out.grad * out_data
         out._backward = _backward
         return out
-        #raise NotImplementedError("Implement exp for Tensor")
 
     def tanh(self):
-        # TODO: Implement tanh for Tensor
         out_data = np.tanh(self.data)
         out = Tensor(data = out_data, _children= (self,), _op = 'tanh')
         def _backward():
             self.grad += out.grad * (1 - out_data**2)
         out._backward = _backward
         return out
-        #raise NotImplementedError("Implement tanh for Tensor")
 
     def relu(self):
-        # TODO: Implement relu for Tensor
         out_data = np.maximum(0, self.data)
         out = Tensor(data = out_data, _children= (self,), _op = 'relu')
         def _backward():
@@ -253,15 +216,10 @@ class Tensor:
 
 
     def sum(self, axis=None, keepdims=False):
-        # TODO: Implement sum reduction (summing over axes)
-        # 1. Compute forward sum using NumPy's sum
         out_data = self.data.sum(axis = axis, keepdims = keepdims)
-        # 2. Build output Tensor
         out = Tensor(data = out_data, _children = (self,), _op = 'sum')
-        # 3. Define _backward: propagates out.grad back to self.grad.
-        #    Hint: If keepdims is False and axis is not None, you need to expand
-        #    out.grad's shape so it matches self.shape before copying.
-        #    Then multiply by np.ones_like(self.data) to broadcast back.
+        # If keepdims dropped the reduced axes, restore them as size-1 dims so
+        # out.grad broadcasts back to self.shape.
         def _backward():
             grad = out.grad
             if not keepdims and axis is not None:
@@ -271,14 +229,12 @@ class Tensor:
                     pos_ax = ax if ax >=0 else len(shape) + ax
                     shape[pos_ax] = 1
                 grad = grad.reshape(shape)
-            self.grad += np.broadcast_to(grad, self.shape)    
+            self.grad += np.broadcast_to(grad, self.shape)
         out._backward = _backward
-        # 4. Return output
         return out
-        #raise NotImplementedError("Implement sum for Tensor")
 
     def backward(self):
-        # Build topological sort (DFS)
+        # Recursive DFS: graph depth is bounded by Python's recursion limit (~1000).
         topo = []
         visited = set()
         def build_topo(v):

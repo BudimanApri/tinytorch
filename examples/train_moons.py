@@ -25,48 +25,33 @@ def main():
     epochs = 100
     learning_rate = 1.0
 
-    # 3. Training Loop
+    # 3. Training loop: the five canonical steps
     for epoch in range(epochs):
-        # Prepare inputs as lists of Value nodes
-        # X is (100, 2), we convert each sample into a list of two Values
-        
-        # TODO: Implement the 5 canonical training steps:
-        
         # Step 1: zero_grad
-        # Reset the gradients of all parameters to 0.0
-        zero_grad = model.zero_grad()
-        
-        # Step 2: forward
-        # Run each input through the model. Since Layer/MLP expects input list/sequence,
-        # you can pass list(x) to model. For example:
-        # scores = [model(list(x_sample)) for x_sample in X]
-        score = []
+        model.zero_grad()
+
+        # Step 2: forward — each sample is a list of two scalar inputs
+        scores = []
         for i in X:
-            score.append(model(list(i)))
-        
-        # Step 3: loss
-        # Compute SVM max-margin loss: mean of relu(1.0 - y_i * score_i)
-        # Plus L2 regularization (reg_loss = 1e-4 * sum(p*p for p in model.parameters()))
-        # Hint: use `(1.0 - y_i * score_i).relu()` to compute the margin loss for each sample
+            scores.append(model(list(i)))
+
+        # Step 3: loss — SVM max-margin loss plus L2 regularization
         margin_loss = []
-        for y_i, score_i in zip(y, score):
+        for y_i, score_i in zip(y, scores):
             margin_loss.append((1.0 - y_i* score_i).relu())
         reg_loss = 1e-4 * sum(p*p for p in model.parameters())
         margin_loss = sum(margin_loss)/len(margin_loss)
         total_loss = margin_loss + reg_loss
 
         # Step 4: backward
-        # Call backward() on the total loss
         total_loss.backward()
-        
-        # Step 5: step (SGD)
-        # Update each parameter's data: p.data -= learning_rate * p.grad
+
+        # Step 5: step (hand-rolled SGD)
         for p in model.parameters():
             p.data -= learning_rate * p.grad
-        # --- end of TODO ---
 
         # Compute accuracy (scores are Value objects)
-        predictions = [1.0 if s.data > 0 else -1.0 for s in score]
+        predictions = [1.0 if s.data > 0 else -1.0 for s in scores]
         accuracy = sum(1.0 for p, yi in zip(predictions, y) if p == yi) / len(y)
         
         if (epoch + 1) % 10 == 0 or epoch == 0:
@@ -85,8 +70,8 @@ def main():
     # Forward pass on the grid points to generate predictions
     Z = []
     for pt in grid_points:
-        score = model([float(pt[0]), float(pt[1])])
-        Z.append(score.data)
+        grid_score = model([float(pt[0]), float(pt[1])])
+        Z.append(grid_score.data)
     Z = np.array(Z).reshape(xx.shape)
     
     plt.figure(figsize=(8, 6))

@@ -41,16 +41,11 @@ class Neuron(Module):
         self.nonlin = nonlin
 
     def __call__(self, x):
-        # TODO: Implement the forward pass for a single neuron.
-        # 1. Compute w * x + b (using the zip of weights and inputs, and summing them).
-        # 2. If self.nonlin is True, apply tanh() to the sum.
-        # 3. Return the resulting Value node.
         r"""This is a function f(x) = b + \sum_{i=0}^N x_i * w_i"""
         activation = sum(w_i*x_i for w_i, x_i in zip(self.w, x)) + self.b
         return activation.tanh() if self.nonlin else activation
 
     def parameters(self):
-        # TODO: Return list of parameters for this neuron (weights + bias)
         return self.w + [self.b]
     
     def __repr__(self):
@@ -65,14 +60,10 @@ class Layer(Module):
         self.neurons = [Neuron(nin, **kwargs) for _ in range(nout)]
 
     def __call__(self, x):
-        # TODO: Implement the forward pass for the layer.
-        # 1. Call each neuron on the inputs x.
-        # 2. Return a single Value if the output size is 1, otherwise return a list of Value outputs.
         outs = [n(x) for n in self.neurons]
         return outs[0] if len(outs)==1 else outs
 
     def parameters(self):
-        # TODO: Collect and return parameters from all neurons in this layer.
         return [p for n in self.neurons for p in n.parameters()]
     
     def __repr__(self):
@@ -88,14 +79,11 @@ class MLP(Module):
         self.layers = [Layer(sz[i], sz[i+1], nonlin=(i!=len(nouts)-1)) for i in range(len(nouts))]
 
     def __call__(self, x):
-        # TODO: Implement sequential forward pass.
-        # Pass the input x sequentially through all layers and return the final layer's output.
         for layer in self.layers:
             x = layer(x)
         return x
 
     def parameters(self):
-        # TODO: Collect and return parameters from all layers in this MLP.
         return [p for layer in self.layers for p in layer.parameters()]
 
 class Linear(Module):
@@ -103,48 +91,35 @@ class Linear(Module):
     
     def __init__(self, in_features, out_features, bias=True):
         super().__init__()
-        # TODO: Initialize weight tensor (glorot/xavier style is recommended: standard normal / sqrt(in_features))
-        # TODO: Initialize bias tensor (zeros) if bias is True
+        # Xavier-style init: standard normal scaled by 1/sqrt(in_features)
         self.w = Tensor(np.random.randn(in_features, out_features) / np.sqrt(in_features))
         self.b = Tensor(np.zeros(out_features)) if bias else None
-        #raise NotImplementedError("Implement Linear layer __init__")
 
     def __call__(self, x):
-        # TODO: Implement Linear forward projection (x @ w + b)
-        # Ensure broadcasting works correctly when adding bias
         if self.b is None:
             return x @ self.w
         else:
             return x @ self.w + self.b
-        #raise NotImplementedError("Implement Linear layer __call__")
 
 class Sequential(Module):
     """A container for chaining modules sequentially."""
     
     def __init__(self, *modules):
         super().__init__()
-        # TODO: Store the modules in a list
         self.modules = list(modules)
-        #raise NotImplementedError("Implement Sequential __init__")
 
     def __call__(self, x):
-        # TODO: Forward inputs sequentially through all stored modules
         for module in self.modules:
             x = module(x)
         return x
-        #raise NotImplementedError("Implement Sequential __call__")
 
 class ReLU(Module):
     """ReLU activation module."""
     def __call__(self, x):
-        # TODO: Apply ReLU activation to the Tensor x
         return x.relu()
-        #raise NotImplementedError("Implement ReLU module")
 
 class Tanh(Module):
     """Tanh activation module."""
     def __call__(self, x):
-        # TODO: Apply Tanh activation to the Tensor x
         return x.tanh()
-        #raise NotImplementedError("Implement Tanh module")
 

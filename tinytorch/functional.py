@@ -11,15 +11,11 @@ def softmax(x):
     Returns:
         Tensor: Softmax probabilities.
     """
-    # TODO: Implement numerically stable softmax
-    # 1. C = np.max(x.data, axis=-1, keepdims=True)
-    # 2. Subtract C from x (for numerical stability: prevents large exponent overflow)
-    # 3. Compute exps = (x - C).exp()
-    # 4. Return exps / exps.sum(axis=-1, keepdims=True)
+    # Subtracting the row max keeps the exponents from overflowing; the max is a
+    # constant w.r.t. the gradient, so correctness is unaffected.
     C = np.max(x.data, axis=-1, keepdims=True)
     exps = (x - C).exp()
     return exps / exps.sum(axis=-1, keepdims=True)
-    #raise NotImplementedError("Implement softmax")
 
 def cross_entropy(logits, targets):
     """
@@ -32,16 +28,10 @@ def cross_entropy(logits, targets):
     Returns:
         Tensor: Mean cross-entropy loss (scalar Tensor).
     """
-    # TODO: Implement numerically stable cross entropy using the log-sum-exp trick
-    # 1. C = np.max(logits.data, axis=-1, keepdims=True)
-    # 2. Compute log_sum_exp = (logits - C).exp().sum(axis=-1, keepdims=True).log() + C
-    # 3. Compute target_logits = (logits * targets).sum(axis=-1, keepdims=True)
-    # 4. Compute batch loss = log_sum_exp - target_logits
-    # 5. Return the mean loss across the batch: loss.sum() * (1.0 / batch_size)
+    # log-sum-exp trick: factor out the row max C so exp() never overflows.
     batch_size = logits.shape[0]
     C = np.max(logits.data, axis=-1, keepdims=True)
     log_sum_exp = (logits - C).exp().sum(axis=-1, keepdims=True).log() + C
     target_logits = (logits * targets).sum(axis=-1, keepdims=True)
     batch_loss = log_sum_exp - target_logits
     return batch_loss.sum() * (1.0 / batch_size)
-    #raise NotImplementedError("Implement cross_entropy")
