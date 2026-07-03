@@ -4,9 +4,10 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from examples.train_mnist import download_mnist, load_mnist
+from tinytorch.seed import SEED
 
 def main():
-    torch.manual_seed(1337)
+    torch.manual_seed(SEED)
     
     # Load dataset using same loader
     paths = download_mnist()
@@ -31,8 +32,8 @@ def main():
         nn.Linear(128, 10)
     )
     
-    # Copy initial weights and biases so they start near the same point if possible,
-    # or just use PyTorch default initialization (which is also uniform/Xavier-like).
+    # Same architecture and hyperparameters as tinytorch; weights are NOT copied —
+    # each library uses its own default initialization scheme.
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.01)
     

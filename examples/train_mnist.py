@@ -7,6 +7,7 @@ from tinytorch.engine import Tensor
 from tinytorch.nn import Sequential, Linear, ReLU
 from tinytorch.optim import Adam
 from tinytorch.functional import cross_entropy
+from tinytorch.seed import seed_everything
 
 def download_mnist(target_dir="data"):
     """Downloads MNIST files if they are not already present."""
@@ -59,6 +60,9 @@ def to_one_hot(y, num_classes=10):
     return oh
 
 def main():
+    # Seed NumPy so weight initialization and batch shuffling are reproducible
+    seed_everything()
+
     # Load dataset
     paths = download_mnist()
     x_train, y_train, x_test, y_test = load_mnist(paths)
@@ -80,7 +84,8 @@ def main():
         ReLU(),
         Linear(128, 10)
     )
-    print(f"Initialized tinytorch MLP with {len(model.parameters())} parameters.")
+    num_params = sum(p.data.size if isinstance(p, Tensor) else 1 for p in model.parameters())
+    print(f"Initialized tinytorch MLP with {num_params} parameters.")
     
     # Initialize Adam optimizer
     optimizer = Adam(model.parameters(), lr=0.01)
@@ -88,7 +93,7 @@ def main():
     batch_size = 100
     epochs = 10
     
-    print("=(Bismillah Work!!)= tinytorch MNIST Training ===")
+    print("=== tinytorch MNIST Training ===")
     start_time = time.time()
     
     for epoch in range(epochs):
@@ -110,18 +115,12 @@ def main():
             batch_x = Tensor(bx)
             batch_y = Tensor(by)
             
-            # TODO: Implement the training step:
-            # 1. Zero the parameter gradients via the optimizer
+            # The canonical training step: zero_grad -> forward -> loss -> backward -> step
             optimizer.zero_grad()
-            # 2. Forward pass: compute predictions by calling model(batch_x)
             predictions = model(batch_x)
-            # 3. Loss: compute cross_entropy loss between predictions and batch_y
             loss = cross_entropy(predictions, batch_y)
-            # 4. Backward pass: backpropagate gradients
             loss.backward()
-            # 5. Optimization step: update weights via the optimizer
             optimizer.step()
-            # 6. Accumulate loss: epoch_loss += loss.data.item() * (len(bx) / num_train)
             epoch_loss += loss.data * (len(bx) / num_train)
             
         # Calculate test accuracy
@@ -134,7 +133,7 @@ def main():
         print(f"Epoch {epoch+1:2d}/{epochs} | Loss: {epoch_loss:.4f} | Test Acc: {accuracy*100:.1f}%")
         
     elapsed = time.time() - start_time
-    print(f"tinytorch training completed in {elapsed:.4f} seconds. Yeyyy")
+    print(f"tinytorch training completed in {elapsed:.4f} seconds.")
 
 if __name__ == "__main__":
     main()
