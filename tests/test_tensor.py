@@ -54,10 +54,13 @@ def gradcheck_tensor(f, inputs, eps=1e-5, tol=1e-5):
             it.iternext()
             
         # 4. Compare analytical and numerical
+        abs_err = np.abs(grads_analytical[i] - grad_numerical)
         denom = np.maximum(1e-9, np.abs(grads_analytical[i]) + np.abs(grad_numerical))
-        rel_err = np.abs(grads_analytical[i] - grad_numerical) / denom
-        max_err = rel_err.max()
-        assert max_err < tol, f"Gradcheck failed for input {i}: max_err={max_err}, analytical=\n{grads_analytical[i]}\nnumerical=\n{grad_numerical}"
+        rel_err = abs_err / denom
+        # A check fails only if both absolute error AND relative error exceed tolerances.
+        # This handles cases where the true gradient is zero and numerical noise exists.
+        failed = (abs_err > 1e-5) & (rel_err > tol)
+        assert not np.any(failed), f"Gradcheck failed for input {i}: analytical=\n{grads_analytical[i]}\nnumerical=\n{grad_numerical}"
 
 def test_tensor_add():
     # Simple addition
@@ -93,6 +96,11 @@ def test_tensor_relu():
     a = Tensor([-1.5, 0.5, 1.5])
     # Avoid testing exactly at 0.0 where derivative is non-differentiable
     gradcheck_tensor(lambda inputs: inputs[0].relu().sum(), [a])
+
+def test_tensor_log():
+    a = Tensor([0.5, 1.5, 2.5])
+    gradcheck_tensor(lambda inputs: inputs[0].log().sum(), [a])
+
 
 def test_tensor_sum():
     # Sum reduction along specific axes

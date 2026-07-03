@@ -1,17 +1,34 @@
 import random
-from tinytorch.engine import Value
+import numpy as np
+from tinytorch.engine import Value, Tensor
 
 class Module:
-    """Base class for all neural network modules."""
+    """Base class for all neural network modules (both scalar and tensor)."""
     
     def zero_grad(self):
         """Resets all parameter gradients to 0.0."""
         for p in self.parameters():
-            p.grad = 0.0
+            if hasattr(p.grad, 'fill'):
+                p.grad.fill(0.0)
+            else:
+                p.grad = 0.0
 
     def parameters(self):
-        """Returns a list of trainable parameters (Value objects)."""
-        return []
+        """Returns a list of trainable parameters (Value or Tensor objects)."""
+        params = []
+        # Walk attributes to find parameters and submodules
+        for name, val in self.__dict__.items():
+            if isinstance(val, (Value, Tensor)):
+                params.append(val)
+            elif isinstance(val, Module):
+                params.extend(val.parameters())
+            elif isinstance(val, list):
+                for item in val:
+                    if isinstance(item, (Value, Tensor)):
+                        params.append(item)
+                    elif isinstance(item, Module):
+                        params.extend(item.parameters())
+        return params
 
 class Neuron(Module):
     """A single neuron wrapping weights and a bias."""
@@ -80,3 +97,54 @@ class MLP(Module):
     def parameters(self):
         # TODO: Collect and return parameters from all layers in this MLP.
         return [p for layer in self.layers for p in layer.parameters()]
+
+class Linear(Module):
+    """A linear/dense projection layer: out = x @ w + b"""
+    
+    def __init__(self, in_features, out_features, bias=True):
+        super().__init__()
+        # TODO: Initialize weight tensor (glorot/xavier style is recommended: standard normal / sqrt(in_features))
+        # TODO: Initialize bias tensor (zeros) if bias is True
+        self.w = Tensor(np.random.randn(in_features, out_features) / np.sqrt(in_features))
+        self.b = Tensor(np.zeros(out_features)) if bias else None
+        #raise NotImplementedError("Implement Linear layer __init__")
+
+    def __call__(self, x):
+        # TODO: Implement Linear forward projection (x @ w + b)
+        # Ensure broadcasting works correctly when adding bias
+        if self.b is None:
+            return x @ self.w
+        else:
+            return x @ self.w + self.b
+        #raise NotImplementedError("Implement Linear layer __call__")
+
+class Sequential(Module):
+    """A container for chaining modules sequentially."""
+    
+    def __init__(self, *modules):
+        super().__init__()
+        # TODO: Store the modules in a list
+        self.modules = list(modules)
+        #raise NotImplementedError("Implement Sequential __init__")
+
+    def __call__(self, x):
+        # TODO: Forward inputs sequentially through all stored modules
+        for module in self.modules:
+            x = module(x)
+        return x
+        #raise NotImplementedError("Implement Sequential __call__")
+
+class ReLU(Module):
+    """ReLU activation module."""
+    def __call__(self, x):
+        # TODO: Apply ReLU activation to the Tensor x
+        return x.relu()
+        #raise NotImplementedError("Implement ReLU module")
+
+class Tanh(Module):
+    """Tanh activation module."""
+    def __call__(self, x):
+        # TODO: Apply Tanh activation to the Tensor x
+        return x.tanh()
+        #raise NotImplementedError("Implement Tanh module")
+

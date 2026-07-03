@@ -241,7 +241,16 @@ class Tensor:
             self.grad += (self.data > 0) * out.grad
         out._backward = _backward
         return out
-        #raise NotImplementedError("Implement relu for Tensor")
+    def log(self):
+        # Compute forward log
+        out_data = np.log(self.data)
+        out = Tensor(data=out_data, _children=(self,), _op='log')
+        def _backward():
+            self.grad += out.grad / self.data
+        out._backward = _backward
+        return out
+
+
 
     def sum(self, axis=None, keepdims=False):
         # TODO: Implement sum reduction (summing over axes)
