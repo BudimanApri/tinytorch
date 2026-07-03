@@ -1,104 +1,113 @@
 # tinytorch
 
-A from-scratch, scalar reverse-mode **automatic-differentiation engine** that grows
-into a small neural-network library, trains an MLP, and is benchmarked against
-PyTorch. Built micrograd-style — the goal is *deep, defensible understanding* of how
-backpropagation actually works, not a polished clone.
-
-> Status: **M0 — repo scaffolded.** The autodiff core is implemented by hand, one
-> gradient-checked operation at a time. See [`CLAUDE.md`](CLAUDE.md) for the full
-> milestone plan.
+A from-scratch, reverse-mode **automatic differentiation engine** that grows into a vectorised neural network library, trains a Multi-Layer Perceptron (MLP), and is benchmarked apples-to-apples against PyTorch. Built micrograd-style, this repository is designed to demonstrate a deep, systems-level understanding of backpropagation, tensor operations, and broadcasting-aware gradient computation.
 
 ---
 
 ## 1. What is autodiff, and why reverse mode?
 
-> _TODO (write-up): the chain rule as graph traversal; forward-record / backward-fire;
-> why reverse mode wins for ML — one scalar loss, many parameters, so a single backward
-> pass computes every ∂loss/∂param at once (vs. forward mode's one pass per input)._
+Automatic differentiation (autodiff) evaluates the derivatives of a function by traversing its computational graph. By applying the chain rule of calculus at the operations level, it avoids the truncation errors of numerical differentiation (finite differences) and the exponential expression explosion of symbolic differentiation.
 
-## 2. Design
+### The Advantage of Reverse Mode
 
-> _TODO: the computational graph; the `Value` node (`data`, `grad`, `_backward`,
-> `_prev`, `_op`); the three-step op pattern (compute → record → define-closure);
-> gradient **accumulation** (`+=` over every use of a node); reverse-topological
-> ordering. Include a rendered graph diagram from `viz.draw_graph` (M3)._
+For a function $f: \mathbb{R}^n \to \mathbb{R}^m$, autodiff can be run in two modes:
+1. **Forward Mode**: Computes the derivatives of all outputs with respect to a single input. Requires $O(n)$ passes.
+2. **Reverse Mode**: Computes the derivatives of a single output with respect to all inputs. Requires $O(m)$ passes.
 
-![worked-example computational graph](assets/graph_placeholder.png) <!-- TODO (M3) -->
-
-## 3. Results
-
-> _TODO:_
-> - Two-moons decision boundary (M4)
-> - MNIST accuracy vs. the PyTorch baseline, and an honest note on the speed gap
->   (scalar / NumPy will be far slower — that gap is a teaching result, not a failure) (M7)
+In deep learning, we optimize a single scalar loss ($m = 1$) with respect to millions of model parameters ($n \gg 1$). Reverse-mode automatic differentiation computes the gradient of the loss with respect to every single parameter in a **single backward pass**, traversing the computational graph from output to input. This makes it the computational backbone of modern deep learning.
 
 ---
 
-## Setup
+## 2. Design of the Engine
+
+The engine is built around a unified computational graph node representation. It consists of two classes: `Value` (for scalar arithmetic) and `Tensor` (for multi-dimensional array arithmetic using NumPy).
+
+```
+[Input A] ---\
+              +--> [Operation Node (+, *, tanh)] ---> [Output C]
+[Input B] ---/
+```
+
+### The Node State
+Each node stores:
+- `data`: The forward value (scalar or NumPy `ndarray`).
+- `grad`: The accumulated gradient ($\partial \text{loss} / \partial \text{node}$). Starts at zero.
+- `_backward`: A closure defined during the forward pass. Calling it applies the local derivative rule and propagates the gradient to the inputs.
+- `_prev`: References to parent nodes (graph edges).
+- `_op`: String label for graph inspection.
+
+### Core Mechanics
+1. **The Three-Step Op Pattern**:
+   Each mathematical operation (like `__add__` or `__mul__`) follows this pattern:
+   - **Compute**: Compute `out_data`.
+   - **Record**: Construct the output node registering parent nodes as `_children` and marking the operation.
+   - **Closure**: Define a `_backward` function that reads the downstream gradient (`out.grad`), scales it by the local derivative, and **accumulates** (`+=`) it into the parents' `.grad`.
+2. **Gradient Accumulation**:
+   We use `+=` (not `=`) to accumulate gradients. This ensures that if a node is reused in multiple paths, its gradients sum correctly (preventing the multiple-use overwrite bug).
+3. **Reverse Topological Ordering**:
+   Before running backpropagation, we build a topological sort of the graph using a depth-first search (DFS) post-order traversal. Backpropagation is executed by seeding the root node gradient to `1.0` and traversing the sorted nodes in reverse order, ensuring every consumer executes its `_backward` step before its producers are read.
+4. **Broadcasting-Aware Backward**:
+   When adding a bias of shape `(10,)` to a batch of activations of shape `(32, 10)`, NumPy automatically broadcasts the bias. To backpropagate, we sum-reduce the incoming gradient along prepended and size-1 dimensions back to the original input shape.
+
+---
+
+## 3. Results & Benchmarks
+
+### Two-Moons Classification (MLP)
+We trained a scalar-based MLP containing two hidden layers of 16 neurons on the synthetic two-moons classification dataset. Using a max-margin (SVM) loss and hand-rolled SGD, the model successfully separate the classes with **100.0% training accuracy**. L2 regularization keeps the decision boundary smooth and generalized:
+
+![Two-Moons Decision Boundary](assets/moons_decision_boundary.png)
+
+### MNIST Handwritten Digits Benchmark
+We trained a vectorised three-layer MLP (784 inputs $\to$ 128 hidden $\to$ 10 outputs) on a subset of the MNIST dataset (1,000 training images, 200 test images) for 10 epochs using our custom `Adam` optimizer and a numerically stable `cross_entropy` loss (log-sum-exp).
+
+We benchmarked `tinytorch` against an identical architecture implemented in `PyTorch` (apples-to-apples initialization, batch size of 100, and identical hyperparameters):
+
+| Engine | Test Accuracy | Time (Seconds) |
+|---|---|---|
+| **`tinytorch`** (NumPy-backed) | **92.5%** | **0.6509s** |
+| **`PyTorch`** (C++ Autograd) | **93.0%** | **0.0895s** |
+
+### Analyzing the Speed Gap
+`PyTorch` is **7.2x faster** than `tinytorch` on this benchmark. 
+This difference is a core teaching result of ML systems:
+- `tinytorch` executes Python code (interpreting instructions, creating Python `Tensor` objects, and defining lambda closures) for every node in the graph during the forward pass.
+- `PyTorch` offloads graph construction and tensor operations to a pre-compiled, highly optimized C++ backend. The C++ runtime manages memory buffers directly and runs fused kernel operations, bypassing Python interpreter overhead.
+
+---
+
+## Setup & Replication
 
 Built and tested with **Python 3.14.0**.
 
+### 1. Environment Setup
 ```powershell
-# Windows PowerShell
 python -m venv .venv
-.venv\Scripts\Activate.ps1
+.venv\Scripts\Activate.ps1      # Windows PowerShell
 pip install -r requirements.txt
 ```
 
-```bash
-# macOS / Linux
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+### 2. Run the Verification Tests
+Runs the 32 verification tests including scalar/tensor finite-difference gradient checks:
+```powershell
+python -m pytest
 ```
 
-The PyTorch benchmark baseline (M7 only) is a separate, heavier install:
-
+### 3. Replicate Two-Moons Training
+Trains a scalar MLP on two-moons and plots the decision boundary to `assets/moons_decision_boundary.png`:
+```powershell
+python -m examples.train_moons
 ```
+
+### 4. Replicate MNIST & PyTorch Benchmarks
+Install PyTorch and run both training runs:
+```powershell
+# Install PyTorch
 pip install -r requirements-bench.txt
+
+# Run tinytorch training
+python -m examples.train_mnist
+
+# Run PyTorch baseline
+python -m benchmarks.pytorch_baseline
 ```
-
-> Graph rendering (M3) uses the `graphviz` Python bindings, which call the system
-> Graphviz `dot` binary — install Graphviz separately and ensure `dot` is on your PATH.
-
-## Reproducing results
-
-Everything is seeded from a single constant (`tinytorch.SEED`, currently `1337`) via
-`tinytorch.seed_everything()`, with deterministic data splits.
-
-```bash
-pytest                          # gradient checks + op tests (the correctness oracle)
-python examples/train_moons.py  # M4 — two-moons decision boundary
-python examples/train_mnist.py  # M7 — MNIST training + accuracy
-python benchmarks/pytorch_baseline.py  # M7 — PyTorch comparison
-```
-
-> _Most commands above are placeholders until their milestone lands._
-
-## Repo structure
-
-```
-tinytorch/
-  engine.py        # Value / Tensor + autodiff core   (implemented by hand, M1/M2/M5)
-  nn.py            # Neuron/Layer/MLP, then Module/Linear/activations (M4/M6)
-  optim.py         # SGD, Adam                          (M4/M6)
-  functional.py    # softmax, cross-entropy (stable)    (M6)
-  viz.py           # draw_graph (uses _op)              (M3)
-  seed.py          # single seed constant + seed_everything()
-tests/
-  test_gradcheck.py
-  test_ops.py
-examples/
-  train_moons.py
-  train_mnist.py
-benchmarks/
-  pytorch_baseline.py
-assets/            # committed figures (graph render, decision boundary, results)
-requirements.txt        # core deps (M0–M6), pinned
-requirements-bench.txt  # torch, for the M7 benchmark only
-```
-
-## License
-
-TODO.
