@@ -43,3 +43,7 @@ Thumbs.db
 
 # Claude Code local (machine-specific) settings
 .claude/settings.local.json
+
+# Exclude instruction/planning file
+CLAUDE.md
+
